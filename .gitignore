@@ -1,0 +1,24 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.env.sample
+!.env.sample
+venv/
+env/
+ENV/
+
+# Local application data and scraping artifacts
+articles/
+.hash_manifest.txt
+
+# Logging
+logs/
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
