@@ -25,8 +25,5 @@ COPY . .
 # Create the data mount directory explicitly to avoid permission issues
 RUN mkdir -p /app/data
 
-# Expose the data directory as a volume to persist state and logs across daily runs
-VOLUME ["/app/data"]
-
 # Define the default execution command (runs once and exits)
 CMD ["python", "main.py"]
