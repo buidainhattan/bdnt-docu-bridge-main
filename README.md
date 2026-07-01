@@ -89,7 +89,7 @@ no long-running process.
 ## Daily job
 
 Scheduled to run once per day on [Railway](https://railway.com/project/e10bbe9b-d0ba-4255-a539-4a4110a2fda3/service/cb26c50a-5332-4d28-838b-f52ace925dc1/schedule?environmentId=20345f99-e4cd-469b-810e-0600b74aab8a)
-![Execution logging on Railway](https://drive.google.com/file/d/128Ef-g_ChMAflTS4cf6A0QOArr79o--r/view?usp=sharing)
+![Execution logging on Railway](https://drive.google.com/uc?export=view&id=128Ef-g_ChMAflTS4cf6A0QOArr79o--r)
 as a scheduled (cron) run of the Docker image above. Job logs are visible
 in the Railway deployment logs at that link.
 
@@ -97,6 +97,6 @@ in the Railway deployment logs at that link.
 
 **Q: "How do I add a YouTube video?"**
 
-![OptiBot answering a sample question with citations](https://drive.google.com/file/d/1v_2Kfo-sLtG1KmesZJcjD6W7knmBvSn5/view?usp=drive_link)
+![OptiBot answering a sample question with citations](https://drive.google.com/uc?export=view&id=1v_2Kfo-sLtG1KmesZJcjD6W7knmBvSn5)
 
 OptiBot answers in ≤5 bullets and cites up to 3 article urls, per system prompt.
