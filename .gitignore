@@ -7,17 +7,14 @@ __pycache__/
 .env
 .env.sample
 !.env.sample
+command.txt
 venv/
 env/
 ENV/
 
 # Local application data and scraping artifacts
-articles/
-.hash_manifest.txt
-
-# Logging
-logs/
-*.log
+data/
+optibot/
 
 # OS-specific files
 .DS_Store

@@ -1,58 +1,70 @@
 import os
 import re
+import hashlib
 import requests
 from markdownify import markdownify as md
+from features.logger_config import get_logger
 
-# Target Zendesk Help Center API
 API_URL = "https://support.optisigns.com/api/v2/help_center/en-us/articles.json"
-OUTPUT_DIR = "./articles"
+DATA_DIR = "./data"
+OUTPUT_DIR = os.path.join(DATA_DIR, "articles")
+MANIFEST_FILE = os.path.join(DATA_DIR, "hash_manifest.txt")
+
+# Initialize the shared logger instance
+logger = get_logger(__name__)
 
 
 def slugify(title):
-    """
-    Converts an article title into a clean, URL-friendly filename slug.
-    
-    Example Input:  "How do I add a YouTube video?"
-    Example Output: "how-do-i-add-a-youtube-video"
-    """
     slug = title.lower().strip()
     slug = re.sub(r"[^\w\s-]", "", slug)
     slug = re.sub(r"[\s_-]+", "-", slug)
     return slug
 
 
+def ensure_directories():
+    """Ensures both data and articles output directories exist."""
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+
+def load_manifest() -> dict:
+    manifest = {}
+    if os.path.exists(MANIFEST_FILE):
+        with open(MANIFEST_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                if ":" in line:
+                    filename, file_hash = line.strip().split(":", 1)
+                    manifest[filename] = file_hash
+    return manifest
+
+
+def save_manifest(manifest: dict):
+    ensure_directories()
+    with open(MANIFEST_FILE, "w", encoding="utf-8") as f:
+        for filename, file_hash in manifest.items():
+            f.write(f"{filename}:{file_hash}\n")
+
+
 def fetch_and_convert_articles():
-    """
-    Fetches articles from the OptiSigns Help Center API, strips layout elements,
-    converts HTML bodies into clean Markdown, and saves them to local disk.
+    ensure_directories()
 
-    Example Side-Effect: Creates a directory structure like:
-    ./articles/
-       ├── how-do-i-add-a-youtube-video.md
-       ├── understanding-screen-zones.md
-       └── ... (30+ markdown files)
-
-    Each file contains front-matter metadata followed by clean Markdown prose.
-    """
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
-
-    print("Fetching articles from OptiSigns support...")
-    # Request 50 items to easily cross the minimum 30-article requirement
-    response = requests.get(f"{API_URL}?per_page=50")
+    logger.info("Fetching articles from OptiSigns support...")
+    response = requests.get(f"{API_URL}?per_page=35")
 
     if response.status_code != 200:
-        print(f"Failed to fetch data: {response.status_code}")
-        return
+        logger.error(f"Failed to fetch data: {response.status_code}")
+        return {"added": 0, "updated": 0, "skipped": 0}, []
 
     data = response.json()
     articles = data.get("articles", [])
 
-    print(f"Found {len(articles)} articles. Starting conversion...")
-    count = 0
+    current_manifest = load_manifest()
+    new_manifest = {}
+    stats = {"added": 0, "updated": 0, "skipped": 0}
+    active_files = set()
+    files_to_upload = []
 
     for article in articles:
-        # Skip empty or draft articles
         if not article.get("body") or article.get("draft"):
             continue
 
@@ -60,26 +72,42 @@ def fetch_and_convert_articles():
         html_body = article.get("body")
         url = article.get("html_url")
         slug = slugify(title) or f"article-{article.get('id')}"
+        filename = f"{slug}.md"
+        active_files.add(filename)
 
-        # Convert HTML to Markdown (preserves headings, code blocks, lists)
         markdown_content = md(html_body, heading_style="ATX")
-
-        # Prepend Metadata for future LLM ingestion / citation accuracy
         final_output = (
             f"---\ntitle: {title}\nsource_url: {url}\n---\n\n{markdown_content}"
         )
 
-        # Save to file
-        file_path = os.path.join(OUTPUT_DIR, f"{slug}.md")
+        content_hash = hashlib.md5(final_output.encode("utf-8")).hexdigest()
+        new_manifest[filename] = content_hash
+
+        # Keep/refresh local files on disk for physical evaluation/inspection
+        file_path = os.path.join(OUTPUT_DIR, filename)
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(final_output)
 
-        count += 1
+        # Delta evaluation
+        if filename in current_manifest:
+            if current_manifest[filename] == content_hash:
+                stats["skipped"] += 1
+                continue
+            else:
+                stats["updated"] += 1
+                files_to_upload.append(filename)
+        else:
+            stats["added"] += 1
+            files_to_upload.append(filename)
 
-    print(
-        f"Successfully processed and saved {count} articles to '{OUTPUT_DIR}' folder."
+    # Clean up local files no longer present in upstream API source
+    for local_file in os.listdir(OUTPUT_DIR):
+        if local_file.endswith(".md") and local_file not in active_files:
+            os.remove(os.path.join(OUTPUT_DIR, local_file))
+
+    save_manifest(new_manifest)
+
+    logger.info(
+        f"Scrape Complete -> Added: {stats['added']} | Updated: {stats['updated']} | Skipped: {stats['skipped']}"
     )
-
-
-if __name__ == "__main__":
-    fetch_and_convert_articles()
+    return stats, files_to_upload

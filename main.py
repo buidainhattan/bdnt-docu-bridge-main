@@ -1,33 +1,34 @@
 import sys
-import logging
 from features.scraper import fetch_and_convert_articles
-from features.upload_articles import get_or_create_file_search_store, upload_articles_to_store
-
-# Set up logging to match your upload_articles config if desired
-logger = logging.getLogger("main")
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] [%(levelname)s] %(message)s",
-    datefmt="%H:%M",
+from features.upload_articles import (
+    get_or_create_file_search_store,
+    upload_articles_to_store,
 )
+from features.logger_config import get_logger
+
+# Initialize the shared logger instance
+logger = get_logger(__name__)
 
 
 def main():
-    logger.info("Starting Daily Scraper & Delta Upload Job...")
+    logger.info("=== Starting Daily Sync Job ===")
 
     try:
-        # 1. Re-scrape support center
-        fetch_and_convert_articles()
+        # 1. Run the scraper to fetch, convert, and get delta lists
+        scrape_stats, files_to_upload = fetch_and_convert_articles()
 
-        # 2. Sync with Gemini File Search / Vector Store
-        target_store = get_or_create_file_search_store()
-        upload_articles_to_store(target_store)
+        # 2. Connect to or initialize the Gemini File Search Store
+        store = get_or_create_file_search_store()
 
-        logger.info("Job completed successfully.")
-        sys.exit(0)  # Explicit zero exit on success
+        # 3. Process the upload pipeline using the explicit delta list
+        upload_articles_to_store(store, scrape_stats, files_to_upload)
+
+        logger.info("=== Daily Sync Job Completed Successfully ===")
+        # Explicit clean exit for Docker container orchestration
+        sys.exit(0)
 
     except Exception as e:
-        logger.error(f"Critical failure during job execution: {str(e)}")
+        logger.critical(f"Job failed with an unhandled exception: {e}", exc_info=True)
         sys.exit(1)
 
 
