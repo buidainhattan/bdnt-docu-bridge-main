@@ -74,10 +74,18 @@ def upload_articles_to_store(store, scrape_stats, files_to_upload):
             operation = client.file_search_stores.upload_to_file_search_store(
                 file_search_store_name=store.name,
                 file=file_path,
-                config={"display_name": filename},
+                config={
+                    "display_name": filename,
+                    "chunking_config": {
+                        "white_space_config": {
+                            "max_tokens_per_chunk": 150,
+                            "max_overlap_tokens": 15,
+                        }
+                    },
+                },
             )
             while not operation.done:
-                time.sleep(1)
+                time.sleep(5)
                 operation = client.operations.get(operation)
         except Exception as e:
             logger.error(f"Failed uploading {filename}: {e}")

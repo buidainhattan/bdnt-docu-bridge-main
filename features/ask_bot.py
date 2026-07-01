@@ -36,10 +36,11 @@ def query_assistant(question: str):
     )
 
     try:
-        interaction = client.interactions.create(
+        interaction_stream = client.interactions.create(
             model="gemini-3.5-flash",
             system_instruction=system_instruction,
             input=question,
+            stream=True,
             tools=[
                 {
                     "type": "file_search",
@@ -52,8 +53,15 @@ def query_assistant(question: str):
         return
 
     print("\n=== OptiBot Response ===")
-    print(interaction.output_text)
-    print("=========================")
+
+    # Print out response as soon as it arrives
+    for event in interaction_stream:
+        if event.event_type == "step.delta":
+            if event.delta.type == "text":
+                print(event.delta.text, end="", flush=True)
+
+    print("\n=========================")
+
 
 if __name__ == "__main__":
     query_assistant("How do I add a YouTube video?")
