@@ -1,21 +1,19 @@
 # OptiBot Mini-Clone
 
-A support-bot clone for OptiSigns.com built on Google Gemini. Scrapes the
-OptiSigns Help Center, converts articles to Markdown, uploads them to a
+A support-bot clone built on Google Gemini. Scrapes a help center, converts articles to markdown, uploads them to a
 Gemini File Search Store, and answers support questions grounded in that
-content with cited "Article URL:" links. Runs on a daily schedule via
+content with cited article urls. Articles are updated on a daily schedule via
 Railway.
 
 ## How it works
 
-1. **Scrape** (`features/scraper.py`) — pulls articles from the OptiSigns
-   Zendesk Help Center API, converts each article's HTML body to Markdown,
+1. **Scrape** (`features/scraper.py`) — pulls articles through help center API, converts each article's HTML body to markdown,
    and writes it to `data/articles/<slug>.md` with a small front-matter
    header (`title`, `source_url`).
-2. **Delta detection** — each article's final Markdown output is hashed
+2. **Delta detection** — each article's final markdown output is hashed
    (MD5) and compared against `data/hash_manifest.txt` from the previous
    run. Only files that are new or whose hash changed are queued for
-   upload; unchanged files are skipped. Articles removed upstream are
+   upload, unchanged files are skipped. Articles removed upstream are
    deleted locally.
 3. **Upload** (`features/upload_articles.py`) — the delta list is pushed to
    a Gemini File Search Store via the API (`file_search_stores.upload_to_file_search_store`).
@@ -30,7 +28,7 @@ Railway.
 
 ## Chunking strategy
 
-Chunking is fully managed by Gemini's File Search Store — whole Markdown
+Chunking is fully managed by Gemini's File Search Store. Whole markdown
 files are uploaded as-is (`embedding_model: gemini-embedding-2`), and
 Gemini handles splitting/embedding internally. The API does not expose a
 per-file chunk count after ingestion, so the pipeline logs **file-level**
@@ -72,7 +70,7 @@ This scrapes the latest articles, uploads any delta to the vector store,
 and exits `0` on success. Logs are written to `data/logs/sync_<dd_mm_yyyy>.log`
 and echoed to stdout.
 
-To ask the bot a question directly:
+To ask the bot a question directly (currently only support embbed question directly in source file):
 
 ```bash
 python ask_bot.py
@@ -82,7 +80,7 @@ python ask_bot.py
 
 ```bash
 docker build -t optibot-sync .
-docker run -e GEMINI_API_KEY=your_key_here -e STORE_DISPLAY_NAME=your_store_name optibot-sync
+docker run --rm -e GEMINI_API_KEY=your_key_here -e STORE_DISPLAY_NAME=your_store_name -v ${PWD}/data:/app/data optibot-sync
 ```
 
 The container runs the sync once and exits (`0` success / `1` failure) —
@@ -91,6 +89,7 @@ no long-running process.
 ## Daily job
 
 Scheduled to run once per day on [Railway](https://railway.com/project/e10bbe9b-d0ba-4255-a539-4a4110a2fda3/service/cb26c50a-5332-4d28-838b-f52ace925dc1/schedule?environmentId=20345f99-e4cd-469b-810e-0600b74aab8a)
+![Execution logging on Railway](https://drive.google.com/uc?export=view&id=128Ef-g_ChMAflTS4cf6A0QOArr79o--r)
 as a scheduled (cron) run of the Docker image above. Job logs are visible
 in the Railway deployment logs at that link.
 
@@ -98,7 +97,6 @@ in the Railway deployment logs at that link.
 
 **Q: "How do I add a YouTube video?"**
 
-![OptiBot answering a sample question with citations](./docs/bot-response.png)
+![OptiBot answering a sample question with citations](https://drive.google.com/uc?export=view&id=1v_2Kfo-sLtG1KmesZJcjD6W7knmBvSn5)
 
-OptiBot answers in ≤5 bullets and cites up to 3 `Article URL:` lines, per
-the system prompt.
+OptiBot answers in ≤5 bullets and cites up to 3 article urls, per system prompt.
